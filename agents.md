@@ -14,7 +14,7 @@
 增减影响并积累经验升级；属性跨会话持久化，并反哺后续对话。同时向 dsh 设置页
 注册「奇遇设置」页（浏览器端），可视化配置触发参数与主题开关。
 
-- 包名：`@pocket30/dsh-serendipity`（v0.5.1，MIT）
+- 包名：`@pocket30/dsh-serendipity`（v0.6.0，MIT）
 - 宿主半（host）：监听 `turn/end`、结算养成、持久化、注册 `serendipity_*` 工具、挂载 `/serendipity/api` 路由
 - 浏览器半（client）：注册 `settings.section` 设置页（角色档案 + 单选主题卡片网格）
 
@@ -28,8 +28,8 @@ dsh-serendipity/
 │   ├── index.ts             #   插件入口：name/inject/apply + 汇总导出
 │   ├── config.ts            #   schemastery schema + resolveCatalog 主题目录合并
 │   ├── attributes.ts        #   六维属性目录（纯数据）
-│   ├── themes.ts            #   内置 7 主题 × 6 事件（纯数据）
-│   ├── engine.ts            #   抽奖/选事件/结算/升级（纯函数，随机源可注入）
+│   ├── themes.ts            #   内置 7 主题 × 8 事件 + 事件层级（EVENT_TIERS）+ 分支定义（纯数据）
+│   ├── engine.ts            #   抽奖/层级偏置权重/分支命中/结算/升级（纯函数，随机源可注入）
 │   ├── profile.ts           #   角色档案 zod schema + createProfile
 │   ├── store.ts             #   ProfileStore：storage domain + 内存降级
 │   ├── settings.ts          #   设置命名空间注册（serendipity）+ 读写面
@@ -40,7 +40,7 @@ dsh-serendipity/
 │       ├── index.ts         #   浏览器插件入口（slots.inject('settings.section')）
 │       ├── api.ts           #   自有路由 fetch 封装（SerendipityApiError）
 │       └── section.tsx      #   设置页组件（角色档案 + 乐观更新 + 修订号守卫）
-├── tests/                   # vitest 单测（engine.spec.ts + runtime.spec.ts，共 11 个）
+├── tests/                   # vitest 单测（engine.spec.ts + runtime.spec.ts，共 29 个）
 ├── examples/                # 本地开发 overlay（--patch，仅宿主功能）
 ├── dist/                    # 宿主半构建产物（tsc 输出，gitignore）
 ├── lib/client.js            # 浏览器半 bundle（tsdown 输出，gitignore）
@@ -67,11 +67,12 @@ flowchart LR
   D -- 否 --> Z
   D -- 是 --> E{random < triggerChance?}
   E -- 否 --> Z
-  E -- 是 --> F[selectAdventure 按权重选主题 → 选事件]
-  F --> G[applyAdventure 结算属性/经验/等级]
-  G --> H[store.save 持久化档案]
-  H --> I[followup / inject 注入剧情消息]
-  I --> J[模型以主角视角续写奇遇]
+  E -- 是 --> F[selectAdventure 选主题 → 按等级偏置权重选事件]
+  F --> G[selectBranch 按属性值命中分支线]
+  G --> H[applyAdventure 结算属性/经验/等级]
+  H --> I[store.save 持久化档案]
+  I --> J[followup / inject 注入剧情消息]
+  J --> K[模型以主角视角续写奇遇]
 ```
 
 实现要点（`src/runtime.ts`）：
@@ -85,6 +86,13 @@ flowchart LR
 - **主题目录每次触发前实时解析**：`AdventureRuntime` 持有 `catalogSource: () => ThemeDef[]`
   （`index.ts` 传 `() => resolveCatalog(configSource())`），设置页的题材单选/权重/
   禁用修改即时生效——不要改成启动时静态快照（旧版 bug：设置页改了题材却不生效）。
+- **等级偏置权重**：事件按 `minLevel` 分四档（日常/冒险/史诗/传奇，
+  `EVENT_TIERS`）；未达门槛权重为 0，解锁后权重随等级线性放大
+  （`eventSelectionWeight`，层级越高封顶倍数越大）——等级越高越容易遇到宏大事件。
+- **属性分支线**：事件可选 `branches`（`EventBranch[]`），每条分支带 `when`
+  条件（`min` / `max` / `highest` / `lowest` / `always`），按声明顺序取第一条
+  命中（`selectBranch` / `branchMatches`）；命中后分支的标题/描述/属性/经验
+  取代事件本体结算，档案记录 `branch` 与 `tier` 字段。
 - **narrateMode**：`followup`（默认，agent.followup 让模型续写）| `inject`（仅注入上下文）| `none`（只记录不展示）。
 - 每实例一份 `states` Map 缓存各会话的触发状态；`ctx.effect` 注册/清理监听，卸载时自动释放。
 
@@ -158,7 +166,7 @@ npm run prepack  # 发布前自动 build
 
 ```sh
 # 方式一：npm 包 / tarball（含设置页卡片；推荐）
-dsh plugin --profile web add ./pocket30-dsh-serendipity-0.5.1.tgz
+dsh plugin --profile web add ./pocket30-dsh-serendipity-0.6.0.tgz
 
 # 方式二：开发模式 --patch（仅宿主逻辑 + /serendipity/api 路由，无设置页 UI）
 npm run build
@@ -175,14 +183,18 @@ dsh --profile web --patch ./examples/web-overlay.cordis.yml
 ### 6.1 加主题 / 事件
 
 - 内置目录在 `src/themes.ts`（`DEFAULT_THEMES`），事件字段：`id` / `title` /
-  `description` / `effects`（属性 id → 增减值）/ `exp` / `minLevel?` / `weight`。
+  `description` / `effects`（属性 id → 增减值）/ `exp` / `minLevel?` / `weight` /
+  `branches?`（属性分支线，`EventBranch[]`：`id` / `title` / `description` /
+  `effects` / `exp?` / `when`）。层级由 `minLevel` 推导（`EVENT_TIERS`：
+  日常 1 / 冒险 2 / 史诗 4 / 传奇 7），无需单独配置。
 - 运行时可经配置追加：`extraThemes`（新主题）、`extraEvents`（向既有主题追加
   事件）、`themeWeights`（权重覆盖）、`disabledThemes`（禁用）——见
   `resolveCatalog()`（`src/config.ts`），顺序：内置 → 追加主题 → 追加事件 →
   权重覆盖 → 剔除禁用。
 - 属性 id 必须来自 `DEFAULT_ATTRIBUTES`（`strength` / `intelligence` / `agility` /
   `charisma` / `luck` / `vitality`）；`tests/engine.spec.ts` 有完整性测试守护
-  （每个主题至少一个事件、effects 属性 id 合法）。
+  （每个主题至少一个事件、effects 属性 id 合法、每个主题都有史诗与传奇层级事件、
+  分支的 effects 与条件属性 id 合法）。
 - 单选主题：配置字段 `theme`（非空且存在时只从该主题抽事件，忽略
   `disabledThemes`；空字符串 = 按 `disabledThemes` 多选过滤）。设置页主题卡片是
   **单选**交互（点击写入 `theme`，旧配置在加载时自动归一），末尾预留

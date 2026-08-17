@@ -103,20 +103,22 @@ export function renderAdventurePrompt(
   profile: Readonly<CharacterProfile>,
   outcome: ReturnType<typeof applyAdventure>,
 ): AdventurePromptResult {
-  const { themeName, event, effects, expGained, levelUp } = outcome
+  const { themeName, event, branch, tier, effects, expGained, levelUp } = outcome
+  const title = branch?.title ?? event.title
+  const description = branch?.description ?? event.description
   const levelLine = levelUp === undefined
     ? ''
     : `\n🎉 等级提升：${levelUp.from} 级 → ${levelUp.to} 级！`
   const text = [
-    `【工作奇遇】奇遇触发 · ${themeName}`,
-    `${event.title}：${event.description}`,
+    `【工作奇遇】${tier.label}奇遇触发 · ${themeName}`,
+    `${title}：${description}`,
     `属性变化：${renderEffects(effects)} · 经验 +${expGained}`,
     `当前状态：${renderProfileLine(profile)}${levelLine}`,
     `累计奇遇：${profile.totalAdventures} 次`,
     '',
     '请以主角的视角把这次奇遇自然地融入当前对话，并在合适的位置交代属性变化；不要跳出角色。',
   ].join('\n')
-  const summary = `工作奇遇触发：${themeName}·${event.title}（${renderEffects(effects)}）`
+  const summary = `工作奇遇触发：${themeName}·${title}（${renderEffects(effects)}）`
   return { text, summary }
 }
 

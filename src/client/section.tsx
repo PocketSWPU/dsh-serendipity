@@ -353,7 +353,7 @@ export function SerendipitySettingsSection(_props: SerendipitySettingsSectionPro
                       key={index}
                       style={{ fontSize: 12, padding: '5px 0', borderTop: '1px solid var(--separator, rgba(128,128,128,.12))' }}
                     >
-                      <span>[{record.theme}] {record.title}</span>
+                      <span>[{record.tier === undefined ? '' : `${record.tier}·`}{record.theme}] {record.title}</span>
                       <span style={{ color: 'var(--text-weak, rgba(128,128,128,.85))' }}>
                         （{record.effectsText}，经验 +{record.exp}） · {new Date(record.time).toLocaleString()}
                       </span>

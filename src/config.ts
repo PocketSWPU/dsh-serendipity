@@ -3,7 +3,7 @@
  */
 
 import Schema from '@deepseek-ai/schemastery'
-import type { AdventureEvent, ThemeDef } from './themes.js'
+import type { AdventureEvent, EventBranch, EventBranchCondition, ThemeDef } from './themes.js'
 import { DEFAULT_THEMES } from './themes.js'
 
 export interface EventConfig {
@@ -14,6 +14,8 @@ export interface EventConfig {
   exp: number
   minLevel?: number
   weight: number
+  /** 属性分支线（可选）：按主角属性值命中不同走向。 */
+  branches?: EventBranch[]
 }
 
 export interface ExtraThemeConfig {
@@ -52,6 +54,37 @@ export interface Config {
   maxAdventureLog: number
 }
 
+const BranchConditionSchema = Schema.union([
+  Schema.object({
+    attribute: Schema.string().required(),
+    min: Schema.number().required(),
+  }),
+  Schema.object({
+    attribute: Schema.string().required(),
+    max: Schema.number().required(),
+  }),
+  Schema.object({
+    attribute: Schema.string().required(),
+    highest: Schema.const(true).required(),
+  }),
+  Schema.object({
+    attribute: Schema.string().required(),
+    lowest: Schema.const(true).required(),
+  }),
+  Schema.object({
+    always: Schema.const(true).required(),
+  }),
+])
+
+const EventBranchSchema = Schema.object({
+  id: Schema.string().required(),
+  title: Schema.string().required(),
+  description: Schema.string().required(),
+  effects: Schema.dict(Schema.number()).default({}),
+  exp: Schema.natural(),
+  when: BranchConditionSchema,
+})
+
 const EventSchema = Schema.object({
   id: Schema.string().required(),
   title: Schema.string().required(),
@@ -60,6 +93,7 @@ const EventSchema = Schema.object({
   exp: Schema.natural().default(10),
   minLevel: Schema.natural().min(1),
   weight: Schema.number().min(0).default(1),
+  branches: Schema.array(EventBranchSchema).default([]),
 })
 
 const ExtraThemeSchema = Schema.object({
@@ -94,6 +128,9 @@ function normalizeEvent(event: EventConfig, themeId: string): AdventureEvent {
     exp: event.exp,
     ...(event.minLevel === undefined ? {} : { minLevel: event.minLevel }),
     weight: event.weight,
+    ...(event.branches === undefined || event.branches.length === 0
+      ? {}
+      : { branches: event.branches }),
   }
 }
 

@@ -6,6 +6,12 @@
 （科幻、玄幻、远古、动漫、小说、武侠、都市…），每个主题下都有大量事件，
 每个事件会对主角的**力量 / 智力 / 敏捷 / 魅力 / 幸运 / 体魄**等属性产生
 不同程度的影响（有增益、有代价、有权衡），并积累经验、升级等级。
+
+- **等级解锁宏大事件**：事件按层级划分（日常 → 冒险 → 史诗 → 传奇），
+  等级越高，越能解锁并更常遇到更宏大的奇遇。
+- **属性分支线**：带分支的事件会根据你当前的属性值走向不同的剧情线
+  （力量流 / 智力流 / 魅力流……），同样的奇遇在不同角色身上会有不同的结局。
+
 属性会持久化，跨会话、跨重启持续养成，并反过来影响你与模型的后续对话走向。
 
 插件还会在 dsh 设置页注册一个**“奇遇设置”页**（参照 DSH-better-sidebar 的
@@ -19,9 +25,13 @@
 - 对话结束自动触发：监听 `turn/end`，只统计**由你发起**的对话轮，插件自己
   注入的剧情轮不会重复触发（不会无限套娃）。
 - 概率与冷却：触发概率、两次奇遇之间的最小用户对话轮数均可配置。
-- 主题 + 事件库：内置 7 大主题、40+ 事件，支持追加事件/主题、禁用主题；
-  题材**单选**（设置页点选一个题材后，奇遇只在该题材内触发，不再跨题材跳转；
-  事件权重、主题权重仍可在编排级配置中调整）。
+- 主题 + 事件库：内置 7 大主题、50+ 事件，支持追加事件/主题、禁用主题；
+  题材**单选**（设置页点选一个题材后，奇遇只在该题材内触发，不再跨题材跳转）。
+- 等级解锁：事件分 **日常 / 冒险 / 史诗 / 传奇** 四个层级，达到对应等级后
+  自动解锁；等级越高，抽中更宏大事件的概率越大（层级越高、经验与收益越大）。
+- 属性分支线：带 `branches` 的事件会按主角**当前属性值**命中不同分支
+  （如力量最高走「以力破局」、智力最高走「以智取胜」），分支各有专属的
+  标题、剧情与属性结算。
 - 属性养成：属性增减带区间夹取（0~100），经验积累自动升级。
 - 剧情注入：默认 `followup` 模式，触发后让模型以主角视角把奇遇续写成故事，
   并在对话中交代属性变化。
@@ -31,47 +41,73 @@
 - 跨会话持久化：优先使用 storage domain（web 组合自带），重启后角色不丢；
   无 storage 的组合自动降级为进程内内存并告警。
 
+## 演示效果
+
+> 📸 **此区域预留给你（仓库作者）补充演示**：对话实录、设置页截图、等级成长
+> 曲线、史诗/传奇奇遇的触发片段、不同属性分支线的对比等，都可以贴在这里。
+> 下方是建议的占位结构，可直接替换内容。
+
+### 触发示例（对话实录）
+
+（待补充：一次奇遇从触发到剧情注入的完整对话。）
+
+### 等级解锁（日常 → 冒险 → 史诗 → 传奇）
+
+（待补充：低等级与高等级时抽到事件的区别，可贴两张 `serendipity_status` 截图。）
+
+### 属性分支线（力量流 / 智力流 / 魅力流）
+
+（待补充：同一事件在不同属性角色身上的不同结局对比。）
+
+---
+
 ## 安装
+
+### 环境要求
+
+- dsh CLI **0.1.0-rc.6**（或与之兼容的版本，见下方「已知限制」）。
+- 推荐 profile：`web`（自带 storage domain 与设置页容器）。
 
 ### 方式一：npm 包（推荐，含设置页卡片）
 
-发布到 npm 后：
-
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add @pocket30/dsh-serendipity
+npx @deepseek-ai/dsh plugin --profile web add @pocket30/dsh-serendipity@0.6.0
 ```
 
-本仓库内也可直接用打包产物安装：
+> 如果你的 profile 不是 `web`，把命令里的 `web` 换成你的 profile 名即可。
+
+### 方式二：tarball / 本地目录
+
+从本仓库的 [Releases](https://github.com/PocketSWPU/dsh-serendipity/releases)
+下载 `pocket30-dsh-serendipity-0.6.0.tgz`，或直接使用仓库目录：
 
 ```sh
-dsh plugin --profile web add ./pocket30-dsh-serendipity-0.5.1.tgz
+dsh plugin --profile web add ./pocket30-dsh-serendipity-0.6.0.tgz
 # 或直接安装源码目录（已构建好、依赖齐全）
 dsh plugin --profile web add ./dsh-serendipity
 ```
 
-装完重启 `dsh web`。**设置页卡片依赖 package 安装**（dsh 客户端模块系统
-只扫描可解析的包入口，`--patch` 的 file:// 入口只加载宿主逻辑）。
+### 安装后
 
-### 方式二：开发模式 `--patch` overlay（仅宿主功能）
+1. **重启 dsh web**：杀掉监听 3080 的进程，重新执行 `dsh web`，浏览器硬刷新。
+2. 打开 dsh 设置页，导航里应出现 **“奇遇设置”** 页。
+3. 完成几轮对话触发第一次奇遇后，「角色档案」会展示等级/属性/最近奇遇；
+   模型也可调用 `serendipity_status` 查看养成状态。
+
+### 卸载
 
 ```sh
-cd dsh-serendipity
-npm run build
-dsh --profile web --patch ./examples/web-overlay.cordis.yml
+dsh plugin --profile web remove @pocket30/dsh-serendipity
 ```
-
-`examples/web-overlay.cordis.yml` 里给了一组高概率配置便于体验
-（触发概率 80%、冷却 1 轮），插件路径是 file:// URL，目录不同时改一下即可。
-注意：file:// 入口只加载宿主逻辑（含 /serendipity/api 设置路由），设置页
-UI 需要 package 安装。
 
 ## 奇遇设置（设置页）
 
 安装后打开 dsh 设置页，导航里会出现 **“奇遇设置”** 页（参照 DSH-better-sidebar
 的“侧边卡片”交互）：
 
-- **角色档案** 分组：主角的等级、经验进度、六维属性条与最近奇遇记录（新→旧），
-  右上角「刷新」按钮重新拉取（奇遇在对话中触发，页面不会自动刷新）。
+- **角色档案** 分组：主角的等级、经验进度、六维属性条与最近奇遇记录（新→旧，
+  含层级标记如「史诗·科幻」），右上角「刷新」按钮重新拉取（奇遇在对话中触发，
+  页面不会自动刷新）。
 - **通用** 分组：逐项开关/输入行 —— 开启奇遇（总开关）、触发概率（百分比）、
   冷却轮数、剧情模式、档案 ID、角色名、奇遇记录条数。
 - **主题** 分组：每个主题一张小卡片（科幻 🚀 / 玄幻 🐉 / 远古 🏺 / 动漫 ⭐ /
@@ -93,7 +129,7 @@ UI 需要 package 安装。
 
 ## 配置项
 
-在 profile 的 `cordis.patch.yml` 或 `--patch` overlay 里按行覆盖：
+在 profile 的 `cordis.patch.yml` 里按行覆盖：
 
 ```yaml
 - insert:
@@ -121,7 +157,6 @@ config:
     detective:
       name: 侦探
       description: 谜案、线索与推理。
-      weight: 1
       events:
         - id: locked-room
           title: 密室谜案
@@ -130,7 +165,36 @@ config:
             intelligence: 6
             luck: -1
           exp: 15
-          weight: 1
+          minLevel: 2           # 可选：最低等级（也决定事件层级）
+          branches:             # 可选：属性分支线
+            - id: sharp-mind
+              title: 一眼看破
+              description: 你凭着过人的洞察力，一眼看出密室钥匙孔上的蜡痕是伪装。
+              effects:
+                intelligence: 8
+              exp: 18
+              when:
+                attribute: intelligence
+                min: 50
+            - id: silver-tongue
+              title: 巧舌如簧
+              description: 你与唯一的嫌疑人周旋，三言两语便让他自己露出了马脚。
+              effects:
+                charisma: 7
+                luck: 2
+              exp: 18
+              when:
+                attribute: charisma
+                highest: true
+            - id: stroke-of-luck
+              title: 灵光一现
+              description: 你毫无头绪，却在整理证物时无意中碰倒了书架，滚出一封关键的信。
+              effects:
+                luck: 5
+                intelligence: 3
+              exp: 16
+              when:
+                always: true
   extraEvents:
     xianxia:
       - id: my-custom-event
@@ -139,18 +203,37 @@ config:
         effects:
           strength: 3
         exp: 10
-        weight: 1
   disabledThemes:
     - urban
 ```
 
 事件字段：`id`、`title`、`description`、`effects`（属性 id → 增减值）、
-`exp`（经验）、`minLevel`（可选，最低等级）、`weight`（权重）。
+`exp`（经验）、`minLevel`（可选，最低等级，兼作层级门槛）。
 属性 id：`strength` / `intelligence` / `agility` / `charisma` / `luck` / `vitality`。
+
+事件层级（由 `minLevel` 决定，无需单独配置）：
+
+| 层级   | minLevel | 解锁条件             |
+| ------ | -------- | -------------------- |
+| 日常   | 1        | 初始可用             |
+| 冒险   | 2        | 2 级解锁             |
+| 史诗   | 4        | 4 级解锁             |
+| 传奇   | 7        | 7 级解锁             |
+
+分支条件（`when`）支持五种写法，按声明顺序匹配第一条命中：
+
+- `{ attribute, min }`：该属性 ≥ min 时命中；
+- `{ attribute, max }`：该属性 ≤ max 时命中；
+- `{ attribute, highest: true }`：该属性为六维最高（并列也算）时命中；
+- `{ attribute, lowest: true }`：该属性为六维最低（并列也算）时命中；
+- `{ always: true }`：无条件兜底，建议放在最后。
+
+分支字段：`id`、`title`、`description`、`effects`、`exp`（可选，缺省用事件
+`exp`）、`when`（命中条件）。未命中任何分支时按事件本体的标题/描述/属性结算。
 
 ## 模型可用工具
 
-- `serendipity_status`：查看角色档案（等级、经验、六维属性、最近奇遇）。
+- `serendipity_status`：查看角色档案（等级、经验、六维属性、最近奇遇，含层级标记）。
 - `serendipity_reset(confirm: true, name?)`：开启一份全新角色档案（需显式确认）。
 
 ## 工作原理
@@ -164,15 +247,20 @@ flowchart LR
   D -- 否 --> Z
   D -- 是 --> E{random < triggerChance?}
   E -- 否 --> Z
-  E -- 是 --> F[按权重选主题 → 选事件]
-  F --> G[结算属性/经验/等级]
-  G --> H[持久化档案 storage domain]
-  H --> I[followup 注入剧情]
-  I --> J[模型以主角视角续写奇遇]
+  E -- 是 --> F[选主题 → 按等级解锁层级选事件]
+  F --> G[按属性值命中分支线]
+  G --> H[结算属性/经验/等级]
+  H --> I[持久化档案 storage domain]
+  I --> J[followup 注入剧情]
+  J --> K[模型以主角视角续写奇遇]
 ```
 
 触发判定完全由**会话日志推导**（`source.kind === 'user'` 的轮次才算用户轮，
 插件注入轮次的 `source.kind === 'plugin'` 不算），因此不会自我循环触发。
+
+选事件的层级偏置：事件按 `minLevel` 分四档，未达等级门槛的事件不会入选；
+解锁后抽中概率随等级线性提升（层级越高、上限越高），因此**等级越高，
+越容易遇到更宏大的奇遇**。
 
 设置链路：
 
@@ -192,8 +280,8 @@ flowchart LR
 │   ├── index.ts         # 宿主插件入口：name / Config / apply
 │   ├── config.ts        # 配置 schema + 主题目录合并
 │   ├── attributes.ts    # 属性目录（六维）
-│   ├── themes.ts        # 内置主题与事件库
-│   ├── engine.ts        # 抽奖/结算/升级（纯函数，可注入随机源）
+│   ├── themes.ts        # 内置主题、事件库、层级与分支定义
+│   ├── engine.ts        # 抽奖/层级偏置/分支命中/结算/升级（纯函数）
 │   ├── profile.ts       # 角色档案模型（zod schema）
 │   ├── store.ts         # 持久化：storage domain + 内存降级
 │   ├── settings.ts      # 设置命名空间注册（serendipity）+ 读写面
@@ -204,8 +292,7 @@ flowchart LR
 │       ├── index.ts     #   浏览器插件入口（slots + 注册设置页）
 │       ├── api.ts       #   自有路由的 fetch 封装
 │       └── section.tsx  #   设置页（角色档案 + 开关行 + 主题卡片 + 齿轮弹窗）
-├── tests/               # vitest 单元测试（11 个）
-├── examples/            # 本地开发 overlay（仅宿主）
+├── tests/               # vitest 单元测试
 ├── tsdown.config.ts     # 客户端 bundle 构建
 ├── cordis.patch.yml     # bundle 层
 └── package.json
@@ -229,7 +316,7 @@ npm publish --access public
 ```
 
 发布成功后，用户即可用
-`npx @deepseek-ai/dsh plugin --profile web add @pocket30/dsh-serendipity`
+`npx @deepseek-ai/dsh plugin --profile web add @pocket30/dsh-serendipity@0.6.0`
 安装。`prepack` 会自动执行构建（宿主 + 客户端 bundle），tarball 内含
 `dist/` 与 `lib/client.js`。
 
@@ -237,7 +324,7 @@ npm publish --access public
 
 ```sh
 npm publish --access public          # 1. 上传 npm（prepack 自动构建）
-dsh plugin --profile web add "@pocket30/dsh-serendipity@0.5.1"   # 2. 本地 profile 拉取最新版本
+dsh plugin --profile web add "@pocket30/dsh-serendipity@0.6.0"   # 2. 本地 profile 拉取最新版本
 # 3. 重启 dsh web：杀掉监听 3080 的进程后重新 `dsh web`，浏览器硬刷新
 ```
 
@@ -249,8 +336,7 @@ dsh plugin --profile web add "@pocket30/dsh-serendipity@0.5.1"   # 2. 本地 pro
 
 - 依赖 `@deepseek-ai/*` 的 0.1.0-rc.6 家族版本，与 dsh CLI 0.1.0-rc.6 对齐；
   若宿主版本差异过大，请同步升级本插件依赖后重新构建。
-- 设置页 UI 依赖 package 安装；`--patch` 的 file:// 入口只加载宿主逻辑
-  （含 /serendipity/api 路由，可用 HTTP 直接调用验证）。
+- 设置页 UI 依赖 package 安装（npm 包 / tarball / 本地目录均可）。
 - `narrateMode: none` 时，冷却标记只存在于进程内存中，重启后可能立刻再触发一次。
 - 跨会话持久化依赖 storage domain（`dsh web` 自带）；纯 headless/TUI 组合会降级为
   内存存储并打印一条告警。

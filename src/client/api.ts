@@ -40,6 +40,7 @@ export interface ProfileView {
   totalAdventures: number
   attributes: { id: string; label: string; value: number }[]
   recentAdventures: {
+    tier?: string
     theme: string
     title: string
     effectsText: string

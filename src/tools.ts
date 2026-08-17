@@ -11,6 +11,7 @@ import type { CharacterProfile } from './profile.js'
 import { createProfile } from './profile.js'
 import type { ConfigSource } from './settings.js'
 import type { ProfileStore } from './store.js'
+import { tierLabel } from './themes.js'
 import { renderEffects, renderProfileLine } from './runtime.js'
 
 const statusOutput = {
@@ -42,6 +43,7 @@ const statusOutput = {
         type: 'object',
         additionalProperties: false,
         properties: {
+          tier: { type: 'string' },
           theme: { type: 'string' },
           title: { type: 'string' },
           effectsText: { type: 'string' },
@@ -73,6 +75,7 @@ export function statusValue(profile: CharacterProfile | undefined, config: Confi
   totalAdventures: number
   attributes: { id: string; label: string; value: number }[]
   recentAdventures: {
+    tier?: string
     theme: string
     title: string
     effectsText: string
@@ -95,6 +98,7 @@ export function statusValue(profile: CharacterProfile | undefined, config: Confi
       value,
     })),
     recentAdventures: base.adventureLog.slice(0, 5).map((record) => ({
+      ...(record.tier === undefined ? {} : { tier: tierLabel(record.tier) ?? record.tier }),
       theme: record.theme,
       title: record.title,
       effectsText: renderEffects(record.effects),
@@ -123,7 +127,8 @@ function renderStatus(
       lines.push('')
       lines.push('最近奇遇：')
       for (const record of value.recentAdventures) {
-        lines.push(`- [${record.theme}] ${record.title}（${record.effectsText}，经验 +${record.exp}）`)
+        const tier = record.tier === undefined ? '' : `${record.tier}·`
+        lines.push(`- [${tier}${record.theme}] ${record.title}（${record.effectsText}，经验 +${record.exp}）`)
       }
     }
   }

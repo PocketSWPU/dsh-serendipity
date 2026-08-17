@@ -28,6 +28,10 @@ export const AdventureRecordSchema = z.object({
     from: z.number().int().positive(),
     to: z.number().int().positive(),
   }).optional(),
+  /** 命中的分支 id（可选）。 */
+  branch: z.string().optional(),
+  /** 事件层级 id（日常/冒险/史诗/传奇，可选，兼容旧记录）。 */
+  tier: z.string().optional(),
 })
 
 export type AdventureRecord = z.infer<typeof AdventureRecordSchema>
