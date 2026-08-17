@@ -84,17 +84,6 @@ npx @deepseek-ai/dsh plugin --profile web add @pocket30/dsh-serendipity@0.6.0
 
 > 如果你的 profile 不是 `web`，把命令里的 `web` 换成你的 profile 名即可。
 
-### 方式二：tarball / 本地目录
-
-从本仓库的 [Releases](https://github.com/PocketSWPU/dsh-serendipity/releases)
-下载 `pocket30-dsh-serendipity-0.6.0.tgz`，或直接使用仓库目录：
-
-```sh
-dsh plugin --profile web add ./pocket30-dsh-serendipity-0.6.0.tgz
-# 或直接安装源码目录（已构建好、依赖齐全）
-dsh plugin --profile web add ./dsh-serendipity
-```
-
 ### 安装后
 
 1. **重启 dsh web**：杀掉监听 3080 的进程，重新执行 `dsh web`，浏览器硬刷新。
@@ -306,45 +295,11 @@ flowchart LR
 └── package.json
 ```
 
-## 开发
-
-```sh
-pnpm install
-npm run build   # 宿主 tsc + 客户端类型检查 + tsdown 浏览器 bundle
-npm test        # vitest 单测
-```
-
-## 发布到 npm
-
-包名是 `@pocket30/dsh-serendipity`（scope 私有），发布时需要 scope 公开：
-
-```sh
-npm login --scope=@pocket30
-npm publish --access public
-```
-
-发布成功后，用户即可用
-`npx @deepseek-ai/dsh plugin --profile web add @pocket30/dsh-serendipity@0.6.0`
-安装。`prepack` 会自动执行构建（宿主 + 客户端 bundle），tarball 内含
-`dist/` 与 `lib/client.js`。
-
-### 发版后流程（每次更新版本号后必须完整执行）
-
-```sh
-npm publish --access public          # 1. 上传 npm（prepack 自动构建）
-dsh plugin --profile web add "@pocket30/dsh-serendipity@0.6.0"   # 2. 本地 profile 拉取最新版本
-# 3. 重启 dsh web：杀掉监听 3080 的进程后重新 `dsh web`，浏览器硬刷新
-```
-
-> 注意：本地更新必须带**显式版本号** `add "@pocket30/dsh-serendipity@<版本>"`；
-> 无版本号的 `add` 在已有 `^0.x` 范围时只会报 "Already up to date"，`update`
-> 也不会跨 `^0.x` minor 拉新版。
-
 ## 已知限制
 
 - 依赖 `@deepseek-ai/*` 的 0.1.0-rc.6 家族版本，与 dsh CLI 0.1.0-rc.6 对齐；
   若宿主版本差异过大，请同步升级本插件依赖后重新构建。
-- 设置页 UI 依赖 package 安装（npm 包 / tarball / 本地目录均可）。
+- 设置页 UI 依赖 package 安装（npm 包安装）。
 - `narrateMode: none` 时，冷却标记只存在于进程内存中，重启后可能立刻再触发一次。
 - 跨会话持久化依赖 storage domain（`dsh web` 自带）；纯 headless/TUI 组合会降级为
   内存存储并打印一条告警。
