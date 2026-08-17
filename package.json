@@ -1,6 +1,6 @@
 {
   "name": "@pocket30/dsh-serendipity",
-  "version": "0.6.0",
+  "version": "1.0.0",
   "description": "工作奇遇：每次对话结束后有几率触发随机奇遇，持续养成你的主角属性；含 dsh 设置页可视化配置。",
   "type": "module",
   "main": "./dist/index.js",

@@ -14,7 +14,7 @@
 增减影响并积累经验升级；属性跨会话持久化，并反哺后续对话。同时向 dsh 设置页
 注册「奇遇设置」页（浏览器端），可视化配置触发参数与主题开关。
 
-- 包名：`@pocket30/dsh-serendipity`（v0.6.0，MIT）
+- 包名：`@pocket30/dsh-serendipity`（v1.0.0，MIT）
 - 宿主半（host）：监听 `turn/end`、结算养成、持久化、注册 `serendipity_*` 工具、挂载 `/serendipity/api` 路由
 - 浏览器半（client）：注册 `settings.section` 设置页（角色档案 + 单选主题卡片网格）
 
@@ -28,7 +28,15 @@ dsh-serendipity/
 │   ├── index.ts             #   插件入口：name/inject/apply + 汇总导出
 │   ├── config.ts            #   schemastery schema + resolveCatalog 主题目录合并
 │   ├── attributes.ts        #   六维属性目录（纯数据）
-│   ├── themes.ts            #   内置 7 主题 × 8 事件 + 事件层级（EVENT_TIERS）+ 分支定义（纯数据）
+│   ├── themes.ts            #   主题定义汇总 + 事件层级（EVENT_TIERS）+ 分支定义（纯数据）
+│   ├── themes-data/         #   7 个主题的批量事件数据（每主题约 100 个事件，纯数据）
+│   │   ├── sci-fi.ts        #     科幻 · 60 日常 / 30 冒险 / 10 史诗 / 1 传奇
+│   │   ├── xianxia.ts       #     玄幻 · 同上
+│   │   ├── ancient.ts       #     远古 · 同上
+│   │   ├── anime.ts         #     动漫 · 同上
+│   │   ├── novel.ts         #     小说 · 同上
+│   │   ├── wuxia.ts         #     武侠 · 同上
+│   │   └── urban.ts         #     都市 · 同上
 │   ├── engine.ts            #   抽奖/层级偏置权重/分支命中/结算/升级（纯函数，随机源可注入）
 │   ├── profile.ts           #   角色档案 zod schema + createProfile
 │   ├── store.ts             #   ProfileStore：storage domain + 内存降级
@@ -40,7 +48,7 @@ dsh-serendipity/
 │       ├── index.ts         #   浏览器插件入口（slots.inject('settings.section')）
 │       ├── api.ts           #   自有路由 fetch 封装（SerendipityApiError）
 │       └── section.tsx      #   设置页组件（角色档案 + 乐观更新 + 修订号守卫）
-├── tests/                   # vitest 单测（engine.spec.ts + runtime.spec.ts，共 29 个）
+├── tests/                   # vitest 单测（engine.spec.ts + runtime.spec.ts，共 34 个）
 ├── examples/                # 本地开发 overlay（--patch，仅宿主功能）
 ├── dist/                    # 宿主半构建产物（tsc 输出，gitignore）
 ├── lib/client.js            # 浏览器半 bundle（tsdown 输出，gitignore）
@@ -90,9 +98,16 @@ flowchart LR
   `EVENT_TIERS`）；未达门槛权重为 0，解锁后权重随等级线性放大
   （`eventSelectionWeight`，层级越高封顶倍数越大）——等级越高越容易遇到宏大事件。
 - **属性分支线**：事件可选 `branches`（`EventBranch[]`），每条分支带 `when`
-  条件（`min` / `max` / `highest` / `lowest` / `always`），按声明顺序取第一条
-  命中（`selectBranch` / `branchMatches`）；命中后分支的标题/描述/属性/经验
-  取代事件本体结算，档案记录 `branch` 与 `tier` 字段。
+  条件（`min` / `max` / `highest` / `lowest` / `always`）。传 `random` 时采用
+  **属性加权抽取**（`selectBranch` + `branchSelectionWeight`：分支权重 = 1 +
+  属性值/10，`always` 恒为 1）——属性越高的分支越容易被选中，养成结果越来越
+  明显地塑造后续剧情；不传 `random` 时保持确定性（按声明顺序取第一条命中，
+  测试与旧行为兼容）。命中后分支的标题/描述/属性/经验取代事件本体结算，
+  档案记录 `branch` 与 `tier` 字段。
+- **防重复窗口**：`selectAdventure(profile, catalog, random, noRepeatWindow)`，
+  排除最近 `noRepeatWindow`（默认 5，0 = 关闭）条奇遇记录（`adventureLog`
+  的 `id`，格式 `主题名/事件id`）内出现过的同主题事件；整个主题都被窗口占满
+  时回退到完整池，避免永远抽不到。
 - **narrateMode**：`followup`（默认，agent.followup 让模型续写）| `inject`（仅注入上下文）| `none`（只记录不展示）。
 - 每实例一份 `states` Map 缓存各会话的触发状态；`ctx.effect` 注册/清理监听，卸载时自动释放。
 
@@ -166,7 +181,7 @@ npm run prepack  # 发布前自动 build
 
 ```sh
 # 方式一：npm 包 / tarball（含设置页卡片；推荐）
-dsh plugin --profile web add ./pocket30-dsh-serendipity-0.6.0.tgz
+dsh plugin --profile web add ./pocket30-dsh-serendipity-1.0.0.tgz
 
 # 方式二：开发模式 --patch（仅宿主逻辑 + /serendipity/api 路由，无设置页 UI）
 npm run build
@@ -182,10 +197,12 @@ dsh --profile web --patch ./examples/web-overlay.cordis.yml
 
 ### 6.1 加主题 / 事件
 
-- 内置目录在 `src/themes.ts`（`DEFAULT_THEMES`），事件字段：`id` / `title` /
-  `description` / `effects`（属性 id → 增减值）/ `exp` / `minLevel?` / `weight` /
-  `branches?`（属性分支线，`EventBranch[]`：`id` / `title` / `description` /
-  `effects` / `exp?` / `when`）。层级由 `minLevel` 推导（`EVENT_TIERS`：
+- 内置目录：`src/themes.ts` 汇总 `DEFAULT_THEMES`，批量事件数据在
+  `src/themes-data/`（每主题一个文件，导出 `<ID>_NEW_EVENTS`，由 `themes.ts`
+  展开进对应主题）。事件字段：`id` / `title` / `description` / `effects`
+  （属性 id → 增减值）/ `exp` / `minLevel?` / `weight` / `branches?`
+  （属性分支线，`EventBranch[]`：`id` / `title` / `description` / `effects` /
+  `exp?` / `when`）。层级由 `minLevel` 推导（`EVENT_TIERS`：
   日常 1 / 冒险 2 / 史诗 4 / 传奇 7），无需单独配置。
 - 运行时可经配置追加：`extraThemes`（新主题）、`extraEvents`（向既有主题追加
   事件）、`themeWeights`（权重覆盖）、`disabledThemes`（禁用）——见

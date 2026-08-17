@@ -193,10 +193,10 @@ export class AdventureRuntime {
     if (profile === undefined) {
       profile = createProfile(config.profileId, config.characterName)
     }
-    const picked = selectAdventure(profile, { themes: this.catalogSource() }, this.random)
+    const picked = selectAdventure(profile, { themes: this.catalogSource() }, this.random, config.noRepeatWindow)
     if (picked === undefined) return
 
-    const outcome = applyAdventure(profile, picked.theme.name, picked.event)
+    const outcome = applyAdventure(profile, picked.theme.name, picked.event, undefined, this.random)
     const saved = trimAdventureLog(outcome.profile, config.maxAdventureLog)
     await this.store.save(saved)
     state.lastAdventureUserTurnIndex = state.completedUserTurns

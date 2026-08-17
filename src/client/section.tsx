@@ -45,6 +45,7 @@ interface ConfigView {
   profileId: string
   characterName: string
   maxAdventureLog: number
+  noRepeatWindow: number
   themeWeights: Record<string, number>
   theme: string
   disabledThemes: string[]
@@ -60,6 +61,7 @@ function viewOf(value: unknown): ConfigView {
     profileId: typeof record.profileId === 'string' ? record.profileId : 'default',
     characterName: typeof record.characterName === 'string' ? record.characterName : '无名主角',
     maxAdventureLog: typeof record.maxAdventureLog === 'number' ? record.maxAdventureLog : 20,
+    noRepeatWindow: typeof record.noRepeatWindow === 'number' ? record.noRepeatWindow : 5,
     themeWeights: typeof record.themeWeights === 'object' && record.themeWeights !== null
       ? record.themeWeights as Record<string, number>
       : {},
@@ -419,6 +421,17 @@ export function SerendipitySettingsSection(_props: SerendipitySettingsSectionPro
           aria-label="角色名"
           value={config.characterName}
           onChange={event => { commitText('characterName', event.currentTarget.value) }}
+        />
+      </Row>
+      <Row title="防重复窗口" desc="最近 N 次奇遇内出现过的同主题事件不重复触发（0 = 关闭）。">
+        <Input
+          type="number"
+          style={{ width: 90 }}
+          min={0}
+          step={1}
+          aria-label="防重复窗口"
+          value={String(config.noRepeatWindow)}
+          onChange={event => { commitNumber('noRepeatWindow', event.currentTarget.value, value => Math.max(0, Math.round(value))) }}
         />
       </Row>
       <Row title="奇遇记录条数" desc="档案中最多保留的最近奇遇记录条数。">

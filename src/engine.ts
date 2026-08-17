@@ -89,15 +89,41 @@ export function branchMatches(
 }
 
 /** 按属性值挑选事件的第一条命中分支；无分支或都不命中时返回 undefined。 */
+export function branchSelectionWeight(
+  branch: Readonly<EventBranch>,
+  attributes: Readonly<Record<string, number>>,
+): number {
+  if ('always' in branch.when) return 1
+  const value = attributes[branch.when.attribute]
+  if (typeof value !== 'number') return 1
+  // 属性值越高，对应分支的抽取权重越大（100 点时约为 always 分支的 11 倍）。
+  return 1 + value / 10
+}
+
+/**
+ * 挑选事件命中的分支。
+ *
+ * - 传入 random 时采用「属性加权」抽取：在所有命中分支里按属性值加权随机
+ *   （属性越高越容易被选中），让积累的属性对后续剧情走向的影响更大；
+ * - 不传 random 时保持确定性：按声明顺序取第一条命中（兼容旧行为）。
+ */
 export function selectBranch(
   profile: Readonly<CharacterProfile>,
   event: Readonly<AdventureEvent>,
+  random?: EngineRandom,
 ): EventBranch | undefined {
   if (event.branches === undefined) return undefined
-  for (const branch of event.branches) {
-    if (branchMatches(profile.attributes, branch.when)) return branch
-  }
-  return undefined
+  const matched = event.branches.filter((branch) => branchMatches(profile.attributes, branch.when))
+  if (matched.length === 0) return undefined
+  if (random === undefined) return matched[0]
+  if (matched.length === 1) return matched[0]
+  return pickWeighted(
+    matched.map((branch) => ({
+      branch,
+      weight: branchSelectionWeight(branch, profile.attributes),
+    })),
+    random,
+  )?.branch
 }
 
 export interface ResolvedEventCatalog {
@@ -111,24 +137,41 @@ export interface PickedAdventure {
   readonly branch: EventBranch | undefined
 }
 
+/** 返回档案最近 window 条奇遇记录的事件键（themeName/eventId 格式）。window <= 0 时返回空集（不防重复）。 */
+export function recentAdventureKeys(profile: Readonly<CharacterProfile>, window: number): Set<string> {
+  const keys = new Set<string>()
+  if (window <= 0) return keys
+  for (const record of profile.adventureLog.slice(0, window)) {
+    keys.add(record.id)
+  }
+  return keys
+}
+
 /**
  * 依据角色等级与属性从事件池中挑选一次奇遇：
- * 先按主题权重选主题，再在主题内按“等级偏置权重”挑选满足层级门槛的事件，
- * 最后按属性值命中分支线。
+ * 先按主题权重选主题，再在主题内按“等级偏置权重”挑选满足层级门槛的事件
+ * （最近 noRepeatWindow 次奇遇内出现过的同主题事件会被排除，0 表示不防重复），
+ * 最后按属性值加权命中分支线。
  */
 export function selectAdventure(
   profile: Readonly<CharacterProfile>,
   catalog: ResolvedEventCatalog,
   random: EngineRandom,
+  noRepeatWindow = 5,
 ): PickedAdventure | undefined {
   const theme = pickWeighted(catalog.themes, random)
   if (theme === undefined) return undefined
-  const weighted = theme.events
-    .map((event) => ({ event, weight: eventSelectionWeight(event, profile.level) }))
-    .filter((entry) => entry.weight > 0)
-  const picked = pickWeighted(weighted, random)
+  const weighted = (events: readonly AdventureEvent[]) =>
+    events
+      .map((event) => ({ event, weight: eventSelectionWeight(event, profile.level) }))
+      .filter((entry) => entry.weight > 0)
+  const blocked = recentAdventureKeys(profile, noRepeatWindow)
+  let candidate = weighted(theme.events).filter((entry) => !blocked.has(`${theme.name}/${entry.event.id}`))
+  // 整个主题的可选池都被防重复窗口占满时，回退到完整池，避免永远抽不到。
+  if (candidate.length === 0) candidate = weighted(theme.events)
+  const picked = pickWeighted(candidate, random)
   if (picked === undefined) return undefined
-  const branch = selectBranch(profile, picked.event)
+  const branch = selectBranch(profile, picked.event, random)
   return { theme, event: picked.event, branch }
 }
 
@@ -153,16 +196,17 @@ export interface AdventureOutcome {
 
 /**
  * 把一次奇遇结算到档案上：
- * 命中分支时用分支的标题/描述/属性变化/经验，否则用事件本体；
- * 属性按 effect 增减并夹取到 [min, max]，经验累加并处理升级。
+ * 命中分支时用分支的标题/描述/属性变化/经验（传 random 时按属性加权抽取分支），
+ * 否则用事件本体；属性按 effect 增减并夹取到 [min, max]，经验累加并处理升级。
  */
 export function applyAdventure(
   profile: Readonly<CharacterProfile>,
   themeName: string,
   event: Readonly<AdventureEvent>,
   now = Date.now(),
+  random?: EngineRandom,
 ): AdventureOutcome {
-  const branch = selectBranch(profile, event)
+  const branch = selectBranch(profile, event, random)
   const title = branch?.title ?? event.title
   const description = branch?.description ?? event.description
   const effects = branch?.effects ?? event.effects

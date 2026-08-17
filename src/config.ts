@@ -52,6 +52,8 @@ export interface Config {
   enableTools: boolean
   /** 档案里最多保留的奇遇记录条数。 */
   maxAdventureLog: number
+  /** 防重复窗口：最近 N 次奇遇内出现过的同主题事件不再触发（0 = 关闭）。 */
+  noRepeatWindow: number
 }
 
 const BranchConditionSchema = Schema.union([
@@ -117,6 +119,7 @@ export const Config: Schema<Config> = Schema.object({
   disabledThemes: Schema.array(Schema.string()).default([]),
   enableTools: Schema.boolean().default(true),
   maxAdventureLog: Schema.natural().min(1).default(20),
+  noRepeatWindow: Schema.natural().default(5),
 })
 
 function normalizeEvent(event: EventConfig, themeId: string): AdventureEvent {

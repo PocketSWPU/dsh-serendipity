@@ -10,7 +10,7 @@ import {
   selectAdventure,
   selectBranch,
 } from '../src/engine.js'
-import { createProfile } from '../src/profile.js'
+import { createProfile, type AdventureRecord } from '../src/profile.js'
 import { DEFAULT_THEMES, EVENT_TIERS, eventTierOf, tierByLevel } from '../src/themes.js'
 import type { AdventureEvent } from '../src/themes.js'
 
@@ -282,6 +282,79 @@ describe('selectAdventure', () => {
     const picked = selectAdventure(profile, { themes: [theme] }, () => 0.5)
     expect(picked?.event.id).toBe('e')
     expect(picked?.branch?.id).toBe('str')
+  })
+})
+
+describe('selectBranch 属性加权', () => {
+  const profile = {
+    ...createProfile('test'),
+    attributes: { strength: 40, intelligence: 80, agility: 10, charisma: 10, luck: 10, vitality: 10 },
+  }
+  const event: AdventureEvent = {
+    id: 'w',
+    title: 't',
+    description: 'd',
+    effects: {},
+    exp: 5,
+    weight: 1,
+    branches: [
+      { id: 'int', title: '智', description: '', effects: {}, when: { attribute: 'intelligence', min: 30 } },
+      { id: 'str', title: '力', description: '', effects: {}, when: { attribute: 'strength', min: 30 } },
+      { id: 'any', title: '兜', description: '', effects: {}, when: { always: true } },
+    ],
+  }
+
+  it('传 random 时按属性值加权抽取：高属性分支更常被选中', () => {
+    // 权重：int = 1+80/10 = 9，str = 1+40/10 = 5，any = 1，总 15
+    expect(selectBranch(profile, event, sequence([0.1]))?.id).toBe('int')  // 0.1*15=1.5 < 9
+    expect(selectBranch(profile, event, sequence([0.7]))?.id).toBe('str')  // 0.7*15=10.5 → 10.5-9=1.5 < 5
+    expect(selectBranch(profile, event, sequence([0.99]))?.id).toBe('any') // 14.85-9-5=0.85 < 1
+  })
+
+  it('不传 random 时保持确定性：按声明顺序取第一条命中', () => {
+    expect(selectBranch(profile, event)?.id).toBe('int')
+  })
+})
+
+describe('selectAdventure 防重复', () => {
+  const record = (id: string): AdventureRecord => ({
+    id,
+    theme: '武侠',
+    title: 't',
+    description: 'd',
+    effects: {},
+    exp: 1,
+    time: 1,
+    tier: 'daily',
+  })
+  const theme = {
+    id: 'wuxia',
+    name: '武侠',
+    description: '',
+    weight: 1,
+    events: [
+      { id: 'x', title: 'x', description: '', effects: {}, exp: 1, weight: 1 },
+      { id: 'y', title: 'y', description: '', effects: {}, exp: 1, weight: 1 },
+    ],
+  }
+
+  it('排除最近窗口内出现过的同主题事件', () => {
+    const profile = { ...createProfile('test'), adventureLog: [record('武侠/x')] }
+    const picked = selectAdventure(profile, { themes: [theme] }, () => 0.99, 5)
+    expect(picked?.event.id).toBe('y')
+  })
+
+  it('窗口为 0 时不防重复', () => {
+    const profile = { ...createProfile('test'), adventureLog: [record('武侠/x')] }
+    // random=0.4 → 0.4*2=0.8 < 1 → x
+    const picked = selectAdventure(profile, { themes: [theme] }, sequence([0.4]), 0)
+    expect(picked?.event.id).toBe('x')
+  })
+
+  it('整个主题都被窗口占满时回退到完整池', () => {
+    const profile = { ...createProfile('test'), adventureLog: [record('武侠/x'), record('武侠/y')] }
+    const picked = selectAdventure(profile, { themes: [theme] }, () => 0.99, 5)
+    expect(picked?.event.id).toBe('y')
   })
 })
 
