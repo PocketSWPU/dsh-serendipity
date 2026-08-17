@@ -1,0 +1,10 @@
+# 本地开发用 overlay：把工作奇遇插入 web 组合。
+# 用法（在 dsh-serendipity 目录构建后）：
+#   dsh --profile web --patch ./examples/web-overlay.cordis.yml
+# 插件路径必须是 file:// URL（Windows）或绝对路径（POSIX）；目录位置不同时请替换。
+- insert:
+    - id: serendipity
+      name: 'file:///E:/projects/dsh-wow/dsh-serendipity/dist/index.js'
+      config:
+        triggerChance: 0.8
+        cooldownTurns: 1

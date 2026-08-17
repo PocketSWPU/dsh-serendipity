@@ -1,0 +1,5 @@
+# 工作奇遇 bundle 层：把插件行插入到组合配置中。
+# 安装方式见 README.md（dsh plugin --profile <name> add <本包>）。
+- insert:
+    - id: serendipity
+      name: '@pocket30/dsh-serendipity'
