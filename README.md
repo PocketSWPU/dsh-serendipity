@@ -130,7 +130,7 @@
 ### 方式一：npm 包（推荐，含设置页卡片）
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add @pocket30/dsh-serendipity@0.6.0
+npx @deepseek-ai/dsh plugin --profile web add @pocket30/dsh-serendipity@1.0.0
 ```
 
 > 如果你的 profile 不是 `web`，把命令里的 `web` 换成你的 profile 名即可。
